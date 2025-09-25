@@ -1,9 +1,8 @@
 use std::{env, error::Error, fs, process};
 use minigrep::{search, search_case_insensitive};
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let config = Config::build(&args).unwrap_or_else(|err|{//it returns the inner value that Ok is wrapping. However, if the value is an Err value, this method calls the code in the closure
+fn main() {    
+    let config = Config::build(env::args()).unwrap_or_else(|err|{//it returns the inner value that Ok is wrapping. However, if the value is an Err value, this method calls the code in the closure
         eprintln!("Problem parsing arguments: {err}");
         process::exit(1);
     });     
@@ -17,10 +16,10 @@ fn main() {
 fn run(config: Config) -> Result<(), Box<dyn Error>>{//the function will return () or a type that implements the Error trait
     let contents = fs::read_to_string(config.file_path)?;        
 
-    let results = if config.ignore_case{
-        search_case_insensitive(&config.query, &contents)
+    let results: Vec<&str> = if config.ignore_case{
+        search_case_insensitive(&config.query, &contents).collect()
     } else {
-        search(&config.query, &contents)
+        search(&config.query, &contents).collect()
     };
 
     for line in results{
@@ -37,13 +36,18 @@ struct Config{
 }
 
 impl Config{
-    fn build(args: &[String]) -> Result<Self, &'static str>{
-        if args.len() < 3{
-            return Err("not enough arguments");
-        }
+    /*The standard library documentation for the env::args function shows that the type of the iterator it returns is std::env::Args, 
+    and that type implements the Iterator trait and returns String values. */
 
-        let query = args[1].clone();
-        let file_path = args[2].clone();
+    /*Because we’re taking ownership of args and we’ll be mutating args by iterating over it, 
+    we can add the mut keyword into the specification of the args parameter to make it mutable.*/
+    fn build(mut args: impl Iterator<Item = String>) -> Result<Self, &'static str>{
+        args.next();
+        let  query = args.next().ok_or_else(|| "Didn't get a query string")?;
+        println!("query: {query}");
+
+        let file_path = args.next().ok_or_else(|| "Didn't get a file path")?;
+        println!("file_path: {file_path}");
 
         let ignore_case = env::var("IGNORE_CASE").is_ok();
 
